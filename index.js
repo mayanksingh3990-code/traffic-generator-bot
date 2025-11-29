@@ -5,18 +5,35 @@ const chromium = require('chromium');
 const puppeteer = require('puppeteer-core');
 
 (async () => {
-  const browser = await puppeteer.launch({
-    executablePath: chromium.path,
-    headless: true,
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage'
-    ]
-  });
+  try {
+    console.log("[*] Starting Puppeteer...");
 
-  const page = await browser.newPage();
-  await page.goto("https://google.com");
+    const browser = await puppeteer.launch({
+      executablePath: chromium.path,
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--no-zygote",
+        "--single-process"
+      ]
+    });
 
-  console.log("Puppeteer running!");
+    console.log("[*] Browser launched!");
+
+    const page = await browser.newPage();
+
+    console.log("[*] Opening C&C dashboard...");
+    await page.goto("https://traffic-generator-bot.onrender.com/", {
+      waitUntil: "networkidle0",
+      timeout: 60000
+    });
+
+    console.log("[+] Puppeteer is running and C&C dashboard opened!");
+
+  } catch (err) {
+    console.error("Puppeteer failed:", err);
+  }
 })();
