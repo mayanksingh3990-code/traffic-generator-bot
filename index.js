@@ -1,5 +1,11 @@
+// START API SERVER FIRST
 require("./server.js");
-require("./bot.js");
+
+// START BOT AFTER API IS READY
+setTimeout(() => {
+  require("./bot.js");
+}, 2000);
+
 
 const chromium = require('chromium');
 const puppeteer = require('puppeteer-core');
