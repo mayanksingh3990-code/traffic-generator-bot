@@ -1,125 +1,80 @@
-const puppeteer = require('puppeteer-core');
-const chromium = require('chromium');
 const axios = require('axios');
+const chromium = require('chromium');
+const puppeteer = require('puppeteer-core');
 
-const C_AND_C_SERVER_URL = 'https://traffic-generator-bot.onrender.com/';
+const C_AND_C_SERVER_URL = 'https://traffic-generator-bot.onrender.com';
 
-// Store proxies in memory
-let proxies = [];
+console.log("[*] Bot starting…");
 
-// Proxy disabled
-async function fetchProxies() {
-    console.log('[*] Proxies disabled - using direct connection');
-    return [];
-}
-
-async function getJob() {
+async function getJobConfig() {
     try {
-        const response = await axios.get(`${C_AND_C_SERVER_URL}/api/job`);
-        return response.data;
+        const res = await axios.get(`${C_AND_C_SERVER_URL}/api/job`);
+        return res.data;
     } catch (error) {
-        console.error('[-] Could not connect to C&C server:', error.message);
-        return { sleep: 30000 };
+        console.error("[-] Could not fetch job from C&C:", error.message);
+        return null;
     }
 }
 
-async function launchBrowser(proxy = null) {
-    const args = [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-blink-features=AutomationControlled",
-        "--window-size=1920,1080"
-    ];
-
-    if (proxy) {
-        args.push(`--proxy-server=${proxy}`);
-    }
-
-    return puppeteer.launch({
-        executablePath: chromium.path,
-        headless: true,
-        args,
-        defaultViewport: null
-    });
-}
-
-async function executeJob(job) {
-    if (proxies.length === 0) proxies = await fetchProxies();
-
-    let useProxy = proxies.length > 0;
-    let proxy = useProxy ? proxies[Math.floor(Math.random() * proxies.length)] : null;
-
-    let browser;
-
+async function reportVisit(url) {
     try {
-        browser = await launchBrowser(proxy);
+        await axios.post(`${C_AND_C_SERVER_URL}/api/report-visit`, { url });
+        console.log(`[+] Visit reported for ${url}`);
+    } catch (err) {
+        console.error("[-] Failed to report visit:", err.message);
+    }
+}
+
+async function startSingleVisit(targetUrl, duration) {
+    try {
+        const browser = await puppeteer.launch({
+            executablePath: chromium.path,
+            headless: true,
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage'
+            ]
+        });
 
         const page = await browser.newPage();
+        await page.goto(targetUrl, { timeout: 20000 });
 
-        await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        );
+        console.log(`[+] Visit started: ${targetUrl}`);
 
-        console.log(`[+] Visiting ${job.targetUrl}${proxy ? ` proxy ${proxy}` : ''}`);
+        await new Promise(res => setTimeout(res, duration));
+        await browser.close();
 
-        await page.goto(job.targetUrl, {
-            waitUntil: 'networkidle2',
-            timeout: 30000
-        });
-
-        console.log(`[✓] Page loaded: ${job.targetUrl}`);
-
-        // Report visit
-        await axios.post(`${C_AND_C_SERVER_URL}/api/report-visit`, {
-            url: job.targetUrl
-        });
-
-        // Scroll
-        await page.evaluate(() => {
-            window.scrollBy(0, Math.random() * 500);
-        });
-
-        // Random click
-        const viewport = await page.viewport();
-        const x = Math.floor(Math.random() * viewport.width);
-        const y = Math.floor(Math.random() * viewport.height);
-        await page.mouse.move(x, y, { steps: 10 });
-        await page.mouse.click(x, y);
-
-        const stay = job.duration || 30000;
-        await new Promise(r => setTimeout(r, stay));
-
+        await reportVisit(targetUrl);
     } catch (err) {
-        console.log(`[✗] Error: ${err.message}`);
-    } finally {
-        if (browser) await browser.close().catch(() => {});
+        console.error("[-] Visit error:", err.message);
     }
 }
 
-async function main() {
+async function runBot() {
+    console.log("[*] Fetching initial job from C&C…");
+
+    const job = await getJobConfig();
+    if (!job) return console.log("[-] No job received. Exiting.");
+
+    const { targetUrl, duration, interval, concurrency } = job;
+
+    console.log("[*] Job received:", job);
+
+    // Main loop
     while (true) {
-        const job = await getJob();
+        console.log(`[~] Starting ${concurrency} concurrent visits…`);
 
-        if (job.sleep) {
-            await new Promise(r => setTimeout(r, job.sleep));
-            continue;
-        }
-
-        let concurrency = job.concurrency || 5;
-        console.log(`[*] Starting batch of ${concurrency} bots...`);
-
-        const workers = [];
-
+        const tasks = [];
         for (let i = 0; i < concurrency; i++) {
-            workers.push(executeJob(job));
-            await new Promise(r => setTimeout(r, 500));
+            tasks.push(startSingleVisit(targetUrl, duration));
         }
 
-        await Promise.all(workers);
+        await Promise.all(tasks);
 
-        await new Promise(r => setTimeout(r, job.interval));
+        console.log(`[~] Waiting ${interval} ms before next batch…`);
+        await new Promise(res => setTimeout(res, interval));
     }
 }
 
-main();
+runBot();
