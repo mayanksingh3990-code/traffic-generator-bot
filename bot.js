@@ -1,6 +1,6 @@
 const puppeteer = require('puppeteer');
 const axios = require('axios');
-const C_AND_C_SERVER_URL = 'http://127.0.0.1:3000'; // <-- IMPORTANT: CHANGE THIS
+const C_AND_C_SERVER_URL = 'https://traffic-generator-bot.onrender.com/'; // <-- IMPORTANT: CHANGE THIS
 
 // Store proxies in memory
 let proxies = [];
@@ -216,3 +216,4 @@ async function main() {
 }
 
 main(); 
+
