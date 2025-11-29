@@ -1,21 +1,22 @@
 require("./server.js");
 require("./bot.js");
 
-const puppeteer = require('puppeteer');
-const path = require('path');
+const chromium = require('chromium');
+const puppeteer = require('puppeteer-core');
 
 (async () => {
-  // Launch Puppeteer for headless browsing on Render/Glitch
   const browser = await puppeteer.launch({
+    executablePath: chromium.path,
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage'
+    ]
   });
 
   const page = await browser.newPage();
+  await page.goto("https://google.com");
 
-  // Open your local index.html from the 'public' folder
-  const filePath = path.join(__dirname, 'public', 'index.html');
-  await page.goto(`file://${filePath}`);
-
-  // Your bot logic goes here
+  console.log("Puppeteer running!");
 })();
