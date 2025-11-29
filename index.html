@@ -1,1 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Traffic Generator C&C</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Traffic Generator C&C</h1>
+            <p>Control your bot swarm from this dashboard.</p>
+        </header>
 
+        <main>
+            <div class="card">
+                <h2>Configure Job</h2>
+                <form id="jobForm">
+                    <div class="form-group">
+                        <label for="targetUrl">Target URL</label>
+                        <input type="url" id="targetUrl" name="targetUrl" placeholder="https://example.com" required>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="duration">Duration (ms)</label>
+                            <input type="number" id="duration" name="duration" value="60000" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="interval">Interval (ms)</label>
+                            <input type="number" id="interval" name="interval" value="5000" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="region">Region (Optional)</label>
+                        <input type="text" id="region" name="region" placeholder="e.g., US, UK">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="concurrency">Concurrency (Bots)</label>
+                        <input type="number" id="concurrency" name="concurrency" value="5" required>
+                    </div>
+
+                    <button type="submit" class="btn-primary">Update Job</button>
+                </form>
+            </div>
+
+            <div class="card status-card">
+                <h2>Current Status</h2>
+                <div id="statusMessage" class="status-message">Waiting for updates...</div>
+            </div>
+
+            <div class="card stats-card">
+                <h2>Live Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <h3>Total Visits</h3>
+                        <p id="totalVisits">0</p>
+                    </div>
+                    <div class="stat-item">
+                        <h3>Active URL</h3>
+                        <p id="activeUrl">-</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const form = document.getElementById('jobForm');
+        const statusMessage = document.getElementById('statusMessage');
+        const totalVisitsEl = document.getElementById('totalVisits');
+        const activeUrlEl = document.getElementById('activeUrl');
+
+        // Load current job on startup
+        fetch('/api/job')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('targetUrl').value = data.targetUrl;
+                document.getElementById('duration').value = data.duration;
+                document.getElementById('interval').value = data.interval;
+                if(data.region) document.getElementById('region').value = data.region;
+                if(data.concurrency) document.getElementById('concurrency').value = data.concurrency;
+            });
+
+        // Poll for stats
+        setInterval(() => {
+            fetch('/api/stats')
+                .then(res => res.json())
+                .then(data => {
+                    totalVisitsEl.textContent = data.totalVisits;
+                    // Find the URL with most visits or just list them
+                    const urls = Object.keys(data.visitsByUrl);
+                    if (urls.length > 0) {
+                        activeUrlEl.textContent = urls.join(', ');
+                    }
+                });
+        }, 2000);
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const response = await fetch('/api/job', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                
+                if (response.ok) {
+                    statusMessage.textContent = `Success: ${result.message}`;
+                    statusMessage.style.color = '#4ade80';
+                } else {
+                    statusMessage.textContent = `Error: ${result.error}`;
+                    statusMessage.style.color = '#f87171';
+                }
+            } catch (error) {
+                statusMessage.textContent = `Network Error: ${error.message}`;
+                statusMessage.style.color = '#f87171';
+            }
+        });
+    </script>
+</body>
+</html>
