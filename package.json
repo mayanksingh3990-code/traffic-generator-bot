@@ -8,7 +8,8 @@
   "dependencies": {
     "express": "^4.18.2",
     "cors": "^2.8.5",
-    "puppeteer": "^24.31.0"
+    "puppeteer": "^24.31.0",
+    "axios": "^1.6.6"
   }
 }
 
