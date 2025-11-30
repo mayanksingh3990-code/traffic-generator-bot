@@ -1,4 +1,3 @@
-// START API SERVER FIRST
 require("./server.js");
 
 // START BOT AFTER API IS READY
@@ -6,16 +5,13 @@ setTimeout(() => {
   require("./bot.js");
 }, 2000);
 
-
-const chromium = require('chromium');
-const puppeteer = require('puppeteer-core');
+const puppeteer = require("puppeteer");
 
 (async () => {
   try {
     console.log("[*] Starting Puppeteer...");
 
     const browser = await puppeteer.launch({
-      executablePath: chromium.path,
       headless: true,
       args: [
         "--no-sandbox",
@@ -43,3 +39,4 @@ const puppeteer = require('puppeteer-core');
     console.error("Puppeteer failed:", err);
   }
 })();
+
