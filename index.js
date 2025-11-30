@@ -1,15 +1,24 @@
+// -------------------------------------------------------------
+// 1. START THE C&C SERVER FIRST
+// -------------------------------------------------------------
 require("./server.js");
 
-// START BOT AFTER API IS READY
+// -------------------------------------------------------------
+// 2. WAIT A MOMENT, THEN START THE BOT
+// -------------------------------------------------------------
 setTimeout(() => {
+  console.log("[*] Starting bot.js after server initialization...");
   require("./bot.js");
-}, 2000);
+}, 3000);
 
+// -------------------------------------------------------------
+// 3. OPTIONAL: OPEN THE DASHBOARD IN PUPPETEER (RENDER SAFE)
+// -------------------------------------------------------------
 const puppeteer = require("puppeteer");
 
-(async () => {
+async function launchDashboardViewer() {
   try {
-    console.log("[*] Starting Puppeteer...");
+    console.log("[*] Starting Puppeteer (Dashboard Viewer)...");
 
     const browser = await puppeteer.launch({
       headless: true,
@@ -23,20 +32,25 @@ const puppeteer = require("puppeteer");
       ]
     });
 
-    console.log("[*] Browser launched!");
-
     const page = await browser.newPage();
 
     console.log("[*] Opening C&C dashboard...");
-    await page.goto("https://traffic-generator-bot.onrender.com/", {
-      waitUntil: "networkidle0",
+    await page.goto("https://traffic-generator-bot.onrender.com", {
+      waitUntil: "networkidle2",
       timeout: 60000
     });
 
-    console.log("[+] Puppeteer is running and C&C dashboard opened!");
+    console.log("[+] Dashboard opened successfully in Puppeteer!");
+
+    // ❗ Keep browser open only if needed
+    // await browser.close();
 
   } catch (err) {
-    console.error("Puppeteer failed:", err);
+    console.error("[!] Puppeteer failed to open dashboard:", err.message);
   }
-})();
+}
 
+// Start puppeteer viewer ONLY in development mode
+if (process.env.NODE_ENV !== "production") {
+  setTimeout(launchDashboardViewer, 5000);
+}
